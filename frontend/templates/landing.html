@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniTutor — Plateforme de tutorat universitaire</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0f1117;
+      --bg2:     #171b26;
+      --bg3:     #1e2333;
+      --border:  rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.13);
+      --purple:  #7c6ef7;
+      --purple2: #a89ef9;
+      --teal:    #3ecfaa;
+      --text:    #e8eaf0;
+      --text2:   #9aa0b8;
+      --text3:   #5a6080;
+      --radius:  14px;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Sora', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 60px;
+      background: rgba(15,17,23,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; text-decoration: none; color: var(--text); }
+    .nav-logo span { color: var(--purple); }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
+    .nav-links a { color: var(--text2); text-decoration: none; font-size: 14px; transition: color .15s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta { display: flex; gap: 10px; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 22px; border-radius: 10px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: all .15s; border: none; font-family: inherit; text-decoration: none;
+    }
+    .btn-primary { background: var(--purple); color: #fff; }
+    .btn-primary:hover { background: #6a5de0; transform: translateY(-1px); }
+    .btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--text2); }
+    .btn-outline:hover { border-color: var(--purple); color: var(--purple2); }
+    .btn-lg { padding: 14px 32px; font-size: 15px; border-radius: 12px; }
+    .btn-xl { padding: 16px 40px; font-size: 16px; border-radius: 12px; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 120px 24px 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute; width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,110,247,0.15) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%, -60%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(124,110,247,0.12); border: 1px solid rgba(124,110,247,0.3);
+      color: var(--purple2); padding: 6px 16px; border-radius: 20px;
+      font-size: 12px; font-weight: 500; margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 72px); font-weight: 700;
+      line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 24px;
+      max-width: 800px;
+    }
+    .hero h1 .accent { color: var(--purple); }
+    .hero h1 .accent2 { color: var(--teal); }
+    .hero p {
+      font-size: clamp(15px, 2vw, 18px); color: var(--text2);
+      max-width: 560px; margin-bottom: 40px; font-weight: 300;
+    }
+    .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .hero-stats {
+      display: flex; gap: 48px; margin-top: 72px;
+      padding-top: 40px; border-top: 1px solid var(--border);
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat-val { font-size: 32px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+    .hero-stat-val span { color: var(--purple); }
+    .hero-stat-label { font-size: 13px; color: var(--text3); margin-top: 4px; }
+
+    /* ── SECTION ── */
+    section { padding: 100px 24px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .section-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(62,207,170,0.1); border: 1px solid rgba(62,207,170,0.25);
+      color: var(--teal); padding: 5px 14px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .section-title { font-size: clamp(28px, 4vw, 42px); font-weight: 700; letter-spacing: -.5px; margin-bottom: 14px; }
+    .section-sub { font-size: 16px; color: var(--text2); max-width: 520px; }
+
+    /* ── FEATURES ── */
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 56px; }
+    .feature-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover { border-color: rgba(124,110,247,0.35); transform: translateY(-3px); }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 18px;
+    }
+    .feature-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+    .feature-card p  { font-size: 13px; color: var(--text2); line-height: 1.7; }
+
+    /* ── HOW IT WORKS ── */
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 56px; position: relative; }
+    .steps::before {
+      content: ''; position: absolute; top: 28px; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--purple), var(--teal), transparent);
+    }
+    .step { text-align: center; padding: 0 12px; }
+    .step-num {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--teal));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; margin: 0 auto 18px;
+      position: relative; z-index: 1;
+    }
+    .step h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .step p  { font-size: 12px; color: var(--text2); }
+
+    /* ── ROLES ── */
+    .roles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 56px; }
+    .role-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 36px;
+    }
+    .role-card.tuteur { border-color: rgba(124,110,247,0.3); }
+    .role-card.etudiant { border-color: rgba(62,207,170,0.3); }
+    .role-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 18px;
+    }
+    .role-tag.tuteur  { background: rgba(124,110,247,0.15); color: var(--purple2); }
+    .role-tag.etudiant { background: rgba(62,207,170,0.15); color: var(--teal); }
+    .role-card h3 { font-size: 22px; font-weight: 700; margin-bottom: 14px; }
+    .role-card p  { font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+    .role-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .role-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text2); }
+    .role-list li i { color: var(--teal); font-size: 15px; flex-shrink: 0; }
+
+    /* ── TESTIMONIALS ── */
+    .testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 56px; }
+    .testimonial {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px;
+    }
+    .testimonial-stars { color: #f5a623; font-size: 14px; margin-bottom: 14px; }
+    .testimonial p { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 18px; font-style: italic; }
+    .testimonial-author { display: flex; align-items: center; gap: 10px; }
+    .testimonial-av {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600;
+    }
+    .testimonial-name { font-size: 13px; font-weight: 500; }
+    .testimonial-role { font-size: 11px; color: var(--text3); }
+
+    /* ── CTA FINAL ── */
+    .cta-section {
+      text-align: center; padding: 100px 24px;
+      background: linear-gradient(180deg, var(--bg) 0%, rgba(124,110,247,0.05) 50%, var(--bg) 100%);
+    }
+    .cta-section h2 { font-size: clamp(28px, 4vw, 48px); font-weight: 700; letter-spacing: -.5px; margin-bottom: 16px; }
+    .cta-section p  { font-size: 16px; color: var(--text2); margin-bottom: 36px; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      color: var(--text3); font-size: 13px;
+    }
+    .footer-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text2); }
+    .footer-logo span { color: var(--purple); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      nav { padding: 16px 24px; }
+      .nav-links { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .steps::before { display: none; }
+      .roles-grid { grid-template-columns: 1fr; }
+      .testimonials-grid { grid-template-columns: 1fr; }
+      .hero-stats { gap: 28px; flex-wrap: wrap; justify-content: center; }
+      footer { flex-direction: column; gap: 12px; text-align: center; padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <i class="ti ti-school" style="color:var(--purple);font-size:22px"></i>
+    Uni<span>Tutor</span>
+  </a>
+  <div class="nav-links">
+    <a href="#fonctionnalites">Fonctionnalités</a>
+    <a href="#comment">Comment ça marche</a>
+    <a href="#roles">Étudiants & Tuteurs</a>
+  </div>
+  <div class="nav-cta">
+    <a href="/connexion" class="btn btn-outline">Se connecter</a>
+    <a href="/inscription" class="btn btn-primary"><i class="ti ti-user-plus"></i> S'inscrire</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-badge">
+    <i class="ti ti-sparkles" style="font-size:13px"></i>
+    Plateforme de tutorat universitaire
+  </div>
+  <h1>Apprenez mieux,<br>avec les <span class="accent">meilleurs tuteurs</span><br>de votre <span class="accent2">université</span></h1>
+  <p>UniTutor connecte les étudiants avec des tuteurs qualifiés pour des sessions personnalisées, un suivi de progression et une messagerie en temps réel.</p>
+  <div class="hero-actions">
+    <a href="/inscription" class="btn btn-primary btn-xl">
+      <i class="ti ti-rocket"></i> Commencer gratuitement
+    </a>
+    <a href="/connexion" class="btn btn-outline btn-lg">
+      <i class="ti ti-login"></i> Se connecter
+    </a>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-val">10<span>+</span></div>
+      <div class="hero-stat-label">Matières disponibles</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val">100<span>%</span></div>
+      <div class="hero-stat-label">Suivi personnalisé</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val">24<span>/7</span></div>
+      <div class="hero-stat-label">Messagerie en temps réel</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val">0<span>€</span></div>
+      <div class="hero-stat-label">Inscription gratuite</div>
+    </div>
+  </div>
+</section>
+
+<!-- FONCTIONNALITÉS -->
+<section id="fonctionnalites" style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-badge"><i class="ti ti-stars" style="font-size:11px"></i> Fonctionnalités</div>
+    <div class="section-title">Tout ce dont vous avez besoin</div>
+    <div class="section-sub">Une plateforme complète pour organiser, suivre et améliorer votre apprentissage.</div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(124,110,247,0.15);color:var(--purple2)">
+          <i class="ti ti-users"></i>
+        </div>
+        <h3>Matching intelligent</h3>
+        <p>Trouvez le tuteur idéal en filtrant par matière, université ou note. Consultez leurs créneaux disponibles directement.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(62,207,170,0.15);color:var(--teal)">
+          <i class="ti ti-calendar-check"></i>
+        </div>
+        <h3>Sessions organisées</h3>
+        <p>Demandez une session, choisissez la matière, la date et la durée. Le tuteur confirme et vous recevez une notification.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(245,166,35,0.15);color:#f5a623">
+          <i class="ti ti-message-circle"></i>
+        </div>
+        <h3>Messagerie temps réel</h3>
+        <p>Échangez directement avec vos tuteurs ou étudiants via notre chat intégré avec WebSocket.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(124,110,247,0.15);color:var(--purple2)">
+          <i class="ti ti-chart-bar"></i>
+        </div>
+        <h3>Suivi de progression</h3>
+        <p>Après chaque session, le tuteur note votre progression par matière. Visualisez votre évolution avec des barres de progression.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(62,207,170,0.15);color:var(--teal)">
+          <i class="ti ti-clock"></i>
+        </div>
+        <h3>Disponibilités flexibles</h3>
+        <p>Les tuteurs définissent leurs créneaux hebdomadaires et le nombre d'heures par matière. Vous savez toujours quand ils sont disponibles.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(245,166,35,0.15);color:#f5a623">
+          <i class="ti ti-star"></i>
+        </div>
+        <h3>Évaluations & notes</h3>
+        <p>Notez vos sessions de 1 à 5 étoiles. Les meilleures tuteurs remontent naturellement dans les résultats de recherche.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMMENT ÇA MARCHE -->
+<section id="comment">
+  <div class="container">
+    <div class="section-badge"><i class="ti ti-route" style="font-size:11px"></i> Processus</div>
+    <div class="section-title">En 4 étapes simples</div>
+    <div class="section-sub">De l'inscription à votre première session, tout est pensé pour être rapide.</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Créez votre compte</h3>
+        <p>Inscrivez-vous en tant qu'étudiant ou tuteur en moins d'une minute.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Trouvez un tuteur</h3>
+        <p>Parcourez les profils, filtrez par matière et consultez les disponibilités.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Demandez une session</h3>
+        <p>Choisissez la matière, la date et envoyez votre demande au tuteur.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Progressez</h3>
+        <p>Suivez votre évolution après chaque session grâce au suivi de progression.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RÔLES -->
+<section id="roles" style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-badge"><i class="ti ti-users" style="font-size:11px"></i> Pour tous</div>
+    <div class="section-title">Étudiant ou tuteur ?</div>
+    <div class="section-sub">UniTutor s'adapte à votre rôle avec une interface dédiée.</div>
+    <div class="roles-grid">
+      <div class="role-card etudiant">
+        <div class="role-tag etudiant"><i class="ti ti-school" style="font-size:11px"></i> Étudiant</div>
+        <h3>Apprenez à votre rythme</h3>
+        <p>Accédez à des tuteurs qualifiés dans toutes les matières et suivez votre progression session après session.</p>
+        <ul class="role-list">
+          <li><i class="ti ti-check"></i> Recherche de tuteurs par matière</li>
+          <li><i class="ti ti-check"></i> Demande de sessions personnalisées</li>
+          <li><i class="ti ti-check"></i> Messagerie directe avec les tuteurs</li>
+          <li><i class="ti ti-check"></i> Suivi de progression par matière</li>
+          <li><i class="ti ti-check"></i> Évaluation des sessions</li>
+        </ul>
+        <a href="/inscription" class="btn btn-primary btn-lg" style="width:100%;justify-content:center">
+          <i class="ti ti-user-plus"></i> S'inscrire comme étudiant
+        </a>
+      </div>
+      <div class="role-card tuteur">
+        <div class="role-tag tuteur"><i class="ti ti-chalkboard" style="font-size:11px"></i> Tuteur</div>
+        <h3>Partagez votre savoir</h3>
+        <p>Gérez vos matières, vos disponibilités et vos étudiants depuis un tableau de bord dédié.</p>
+        <ul class="role-list">
+          <li><i class="ti ti-check"></i> Tableau de bord avec statistiques</li>
+          <li><i class="ti ti-check"></i> Gestion des demandes de sessions</li>
+          <li><i class="ti ti-check"></i> Définition des créneaux hebdomadaires</li>
+          <li><i class="ti ti-check"></i> Notation de la progression des étudiants</li>
+          <li><i class="ti ti-check"></i> Messagerie avec les étudiants</li>
+        </ul>
+        <a href="/inscription" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;background:var(--purple)">
+          <i class="ti ti-user-plus"></i> S'inscrire comme tuteur
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TÉMOIGNAGES -->
+<section>
+  <div class="container">
+    <div class="section-badge"><i class="ti ti-quote" style="font-size:11px"></i> Témoignages</div>
+    <div class="section-title">Ce qu'ils en disent</div>
+    <div class="testimonials-grid">
+      <div class="testimonial">
+        <div class="testimonial-stars">★★★★★</div>
+        <p>"Grâce à UniTutor, j'ai trouvé un tuteur en Algèbre linéaire en quelques minutes. Ma note est passée de 8 à 15 en un mois."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-av" style="background:rgba(62,207,170,0.15);color:var(--teal)">FN</div>
+          <div>
+            <div class="testimonial-name">Fatou N.</div>
+            <div class="testimonial-role">Étudiante · Licence 2 Maths</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="testimonial-stars">★★★★★</div>
+        <p>"La gestion des disponibilités est super pratique. Mes étudiants savent exactement quand je suis disponible et la messagerie est fluide."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-av" style="background:rgba(124,110,247,0.15);color:var(--purple2)">KD</div>
+          <div>
+            <div class="testimonial-name">Karim D.</div>
+            <div class="testimonial-role">Tuteur · Doctorant Informatique</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial">
+        <div class="testimonial-stars">★★★★☆</div>
+        <p>"Le suivi de progression m'aide vraiment à voir où j'en suis. Mon tuteur met à jour après chaque session, c'est très motivant."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-av" style="background:rgba(62,207,170,0.15);color:var(--teal)">SS</div>
+          <div>
+            <div class="testimonial-name">Sophie S.</div>
+            <div class="testimonial-role">Étudiante · Licence 3 Informatique</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-section">
+  <div class="hero-badge" style="margin-bottom:24px">
+    <i class="ti ti-rocket" style="font-size:13px"></i>
+    Rejoignez UniTutor aujourd'hui
+  </div>
+  <h2>Prêt à booster<br>votre réussite universitaire ?</h2>
+  <p>Inscription gratuite · Accès immédiat · Aucune carte bancaire requise</p>
+  <a href="/inscription" class="btn btn-primary btn-xl">
+    <i class="ti ti-user-plus"></i> Créer mon compte gratuitement
+  </a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <i class="ti ti-school" style="color:var(--purple)"></i>
+    Uni<span>Tutor</span>
+  </div>
+  <div>Plateforme de tutorat universitaire · 2026</div>
+  <div style="display:flex;gap:20px">
+    <a href="/connexion" style="color:var(--text3);text-decoration:none;transition:color .15s" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">Connexion</a>
+    <a href="/inscription" style="color:var(--text3);text-decoration:none;transition:color .15s" onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">Inscription</a>
+  </div>
+</footer>
+
+</body>
+</html>

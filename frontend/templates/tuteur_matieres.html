@@ -1,0 +1,128 @@
+{% extends "app_base.html" %}
+{% set active = 'matieres' %}
+{% block title %}Mes matières{% endblock %}
+{% block topbar_title %}Mes matières{% endblock %}
+
+{% block content %}
+<div style="max-width:640px">
+
+  <!-- Ajouter une matière -->
+  <div class="card" style="margin-bottom:24px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:14px">Ajouter une nouvelle matière</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end">
+      <div class="form-group" style="margin:0">
+        <label class="form-label" for="new-nom">Nom de la matière</label>
+        <input id="new-nom" class="form-input" placeholder="ex: Chimie organique">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label" for="new-domaine">Domaine (optionnel)</label>
+        <input id="new-domaine" class="form-input" placeholder="ex: Chimie">
+      </div>
+      <button class="btn btn-primary" id="btn-add-matiere">
+        <i class="ti ti-plus"></i> Ajouter
+      </button>
+    </div>
+  </div>
+
+  <!-- Sélection des matières -->
+  <p style="color:var(--text2);font-size:13px;margin-bottom:14px">
+    Cochez les matières que vous enseignez. Elles apparaîtront sur votre profil.
+  </p>
+  <div id="matieres-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px">
+    <div style="color:var(--text3);font-size:13px">Chargement...</div>
+  </div>
+  <button class="btn btn-primary" id="btn-save">
+    <i class="ti ti-device-floppy"></i> Enregistrer la sélection
+  </button>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+let toutesLesMatieres = [];
+let matieresSelectionnees = new Set();
+
+(async () => {
+  await charger();
+})();
+
+async function charger() {
+  const [user, matieres] = await Promise.all([
+    API.get('/api/auth/moi'),
+    API.get('/api/tuteurs/matieres-liste'),
+  ]);
+  toutesLesMatieres = matieres;
+  const nomsActuels = new Set(user.matieres || []);
+  matieresSelectionnees = new Set(matieres.filter(m => nomsActuels.has(m.nom)).map(m => m.id));
+  renderMatieres();
+}
+
+function renderMatieres() {
+  const grid = document.getElementById('matieres-grid');
+  if (!toutesLesMatieres.length) {
+    grid.innerHTML = '<div style="color:var(--text3);font-size:13px">Aucune matière disponible</div>';
+    return;
+  }
+  grid.innerHTML = toutesLesMatieres.map(m => {
+    const sel = matieresSelectionnees.has(m.id);
+    return `<div onclick="toggleMatiere(${m.id})" style="
+        padding:8px 16px; border-radius:20px; cursor:pointer; font-size:13px;
+        border:1px solid ${sel ? 'var(--purple)' : 'var(--border2)'};
+        background:${sel ? 'rgba(124,110,247,0.15)' : 'transparent'};
+        color:${sel ? 'var(--purple2)' : 'var(--text2)'};
+        transition:all 0.15s; user-select:none;">
+      ${sel ? '<i class="ti ti-check" style="font-size:11px;margin-right:4px"></i>' : ''}${m.nom}
+      ${m.domaine ? `<span style="font-size:10px;opacity:0.6;margin-left:4px">${m.domaine}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function toggleMatiere(id) {
+  matieresSelectionnees.has(id) ? matieresSelectionnees.delete(id) : matieresSelectionnees.add(id);
+  renderMatieres();
+}
+
+// Ajouter une nouvelle matière
+document.getElementById('btn-add-matiere').onclick = async () => {
+  const btn    = document.getElementById('btn-add-matiere');
+  const nom    = document.getElementById('new-nom').value.trim();
+  const domaine = document.getElementById('new-domaine').value.trim();
+  if (!nom) { toast('Entrez un nom de matière', 'error'); return; }
+
+  btn.disabled = true;
+  try {
+    const m = await API.post('/api/tuteurs/matieres-liste', { nom, domaine });
+    toutesLesMatieres.push(m);
+    toutesLesMatieres.sort((a, b) => a.nom.localeCompare(b.nom));
+    matieresSelectionnees.add(m.id);  // sélectionnée automatiquement
+    document.getElementById('new-nom').value    = '';
+    document.getElementById('new-domaine').value = '';
+    renderMatieres();
+    toast(`"${m.nom}" ajoutée et sélectionnée !`);
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// Entrée clavier sur le champ nom
+document.getElementById('new-nom').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-add-matiere').click();
+});
+
+// Enregistrer la sélection
+document.getElementById('btn-save').onclick = async () => {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  try {
+    await API.put('/api/tuteurs/matieres', { matiere_ids: [...matieresSelectionnees] });
+    toast('Matières enregistrées !');
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+};
+</script>
+{% endblock %}

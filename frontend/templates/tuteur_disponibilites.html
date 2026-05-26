@@ -1,0 +1,197 @@
+{% extends "app_base.html" %}
+{% set active = 'disponibilites' %}
+{% block title %}Mes disponibilités{% endblock %}
+{% block topbar_title %}Mes disponibilités{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px">
+
+  <!-- Colonne gauche : créneaux hebdomadaires -->
+  <div>
+    <div class="section-title">Créneaux hebdomadaires</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="form-group">
+        <label class="form-label">Jour</label>
+        <select id="new-jour" class="form-select">
+          <option value="lundi">Lundi</option>
+          <option value="mardi">Mardi</option>
+          <option value="mercredi">Mercredi</option>
+          <option value="jeudi">Jeudi</option>
+          <option value="vendredi">Vendredi</option>
+          <option value="samedi">Samedi</option>
+          <option value="dimanche">Dimanche</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">Début</label>
+          <input id="new-debut" type="time" class="form-input" value="08:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fin</label>
+          <input id="new-fin" type="time" class="form-input" value="10:00">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="btn-add-creneau" style="width:100%;justify-content:center">
+        <i class="ti ti-plus"></i> Ajouter ce créneau
+      </button>
+    </div>
+
+    <!-- Liste des créneaux -->
+    <div id="creneaux-list" style="display:flex;flex-direction:column;gap:8px">
+      <div style="color:var(--text3);font-size:13px">Chargement...</div>
+    </div>
+  </div>
+
+  <!-- Colonne droite : heures par matière -->
+  <div>
+    <div class="section-title">Heures par matière / semaine</div>
+    <div id="heures-list" style="display:flex;flex-direction:column;gap:10px">
+      <div style="color:var(--text3);font-size:13px">Chargement...</div>
+    </div>
+    <button class="btn btn-primary btn-sm" id="btn-save-heures" style="margin-top:16px;width:100%;justify-content:center">
+      <i class="ti ti-device-floppy"></i> Enregistrer les heures
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const JOURS = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+const JOURS_FR = { lundi:'Lundi', mardi:'Mardi', mercredi:'Mercredi', jeudi:'Jeudi',
+                   vendredi:'Vendredi', samedi:'Samedi', dimanche:'Dimanche' };
+
+let creneaux = [];
+let matieresTuteur = [];
+
+(async () => {
+  const [user, dispos, heures] = await Promise.all([
+    API.get('/api/auth/moi'),
+    API.get('/api/disponibilites/'),
+    API.get('/api/disponibilites/heures'),
+  ]);
+  creneaux       = dispos;
+  matieresTuteur = user.matieres || [];
+  renderCreneaux();
+  renderHeures(heures);
+})();
+
+// ── Créneaux ─────────────────────────────────────────────────
+function renderCreneaux() {
+  const el = document.getElementById('creneaux-list');
+  if (!creneaux.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px">Aucun créneau — ajoutez-en un ci-dessus</div>';
+    return;
+  }
+  // Grouper par jour
+  const parJour = {};
+  JOURS.forEach(j => parJour[j] = []);
+  creneaux.forEach(c => parJour[c.jour]?.push(c));
+
+  el.innerHTML = JOURS.filter(j => parJour[j].length).map(j => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">${JOURS_FR[j]}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${parJour[j].map(c => `
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:13px;font-family:'JetBrains Mono',monospace;color:var(--purple2)">
+              ${c.heure_debut} – ${c.heure_fin}
+              <span style="color:var(--text3);font-family:'Sora',sans-serif;font-size:11px;margin-left:6px">
+                (${duree(c.heure_debut, c.heure_fin)})
+              </span>
+            </span>
+            <button onclick="supprimerCreneau(${c.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:2px 6px;border-radius:4px;transition:color .15s"
+              onmouseover="this.style.color='#f56565'" onmouseout="this.style.color='var(--text3)'">
+              <i class="ti ti-trash" style="font-size:14px"></i>
+            </button>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function duree(debut, fin) {
+  const [h1,m1] = debut.split(':').map(Number);
+  const [h2,m2] = fin.split(':').map(Number);
+  const mins = (h2*60+m2) - (h1*60+m1);
+  return mins >= 60 ? `${Math.floor(mins/60)}h${mins%60?String(mins%60).padStart(2,'0'):''}` : `${mins}min`;
+}
+
+document.getElementById('btn-add-creneau').onclick = async () => {
+  const btn   = document.getElementById('btn-add-creneau');
+  const jour  = document.getElementById('new-jour').value;
+  const debut = document.getElementById('new-debut').value;
+  const fin   = document.getElementById('new-fin').value;
+  if (!debut || !fin) { toast('Renseignez les heures', 'error'); return; }
+  if (debut >= fin)   { toast('L\'heure de fin doit être après le début', 'error'); return; }
+  btn.disabled = true;
+  try {
+    const d = await API.post('/api/disponibilites/', { jour, heure_debut: debut, heure_fin: fin });
+    creneaux.push(d);
+    renderCreneaux();
+    toast('Créneau ajouté !');
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; }
+};
+
+async function supprimerCreneau(id) {
+  try {
+    await API.delete(`/api/disponibilites/${id}`);
+    creneaux = creneaux.filter(c => c.id !== id);
+    renderCreneaux();
+    toast('Créneau supprimé');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Heures par matière ────────────────────────────────────────
+function renderHeures(configs) {
+  const el = document.getElementById('heures-list');
+  if (!matieresTuteur.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px">Ajoutez d\'abord vos matières dans <a href="/tuteur/matieres" style="color:var(--purple2)">Mes matières</a></div>';
+    return;
+  }
+  const configMap = {};
+  configs.forEach(c => configMap[c.matiere_nom] = c);
+
+  el.innerHTML = matieresTuteur.map(nom => {
+    const h = configMap[nom]?.heures_par_semaine || 1;
+    const mid = configMap[nom]?.matiere_id || '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px">
+      <span style="font-size:13px;font-weight:500">${nom}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="ajusterHeures('${nom}', -1)" class="btn btn-outline btn-sm" style="padding:3px 8px;min-width:28px">−</button>
+        <span id="h-${nom.replace(/\s/g,'_')}" style="font-size:14px;font-weight:600;color:var(--purple2);font-family:'JetBrains Mono',monospace;min-width:32px;text-align:center">${h}h</span>
+        <button onclick="ajusterHeures('${nom}', 1)" class="btn btn-outline btn-sm" style="padding:3px 8px;min-width:28px">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const heuresState = {};
+function ajusterHeures(nom, delta) {
+  const key = nom.replace(/\s/g,'_');
+  const el  = document.getElementById(`h-${key}`);
+  const val = parseInt(el.textContent) + delta;
+  if (val < 1 || val > 40) return;
+  el.textContent = val + 'h';
+  heuresState[nom] = val;
+}
+
+document.getElementById('btn-save-heures').onclick = async () => {
+  const btn = document.getElementById('btn-save-heures');
+  btn.disabled = true;
+  try {
+    // Récupère toutes les valeurs affichées
+    const payload = matieresTuteur.map(nom => {
+      const key = nom.replace(/\s/g,'_');
+      const el  = document.getElementById(`h-${key}`);
+      return { matiere_nom: nom, heures_par_semaine: parseInt(el?.textContent) || 1 };
+    });
+    // Résout les matiere_id côté serveur via un endpoint dédié
+    await API.put('/api/disponibilites/heures-par-nom', payload);
+    toast('Heures enregistrées !');
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled = false; }
+};
+</script>
+{% endblock %}

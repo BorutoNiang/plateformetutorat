@@ -1,0 +1,83 @@
+{% extends "app_base.html" %}
+{% set active = 'suivi' %}
+{% block title %}Suivi{% endblock %}
+{% block topbar_title %}Suivi des sessions{% endblock %}
+
+{% block content %}
+<div class="section-title">Progression par matière</div>
+<div class="progress-grid" id="prog-grid">
+  <div style="color:var(--text3);font-size:13px">Chargement...</div>
+</div>
+
+<div class="section-title" style="margin-top:8px">Sessions passées</div>
+<div class="sessions-list" id="sessions-passees">
+  <div style="color:var(--text3);font-size:13px">Chargement...</div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const barColors = ['#7c6ef7','#3ecfaa','#f5a623','#f56565','#a89ef9','#5dcaa5'];
+
+(async () => {
+  const [progs, sessions, user] = await Promise.all([
+    API.get('/api/progression/'),
+    API.get('/api/sessions/'),
+    API.get('/api/auth/moi'),
+  ]);
+
+  // Barres de progression
+  const grid = document.getElementById('prog-grid');
+  if (!progs.length) {
+    grid.innerHTML = '<div style="color:var(--text3);font-size:13px">Aucune progression enregistrée</div>';
+  } else {
+    grid.innerHTML = progs.map((p, i) => `
+      <div class="progress-card">
+        <div class="progress-head">
+          <span class="progress-subject">${p.matiere}</span>
+          <span class="progress-pct">${p.pourcentage}%</span>
+        </div>
+        <div class="progress-bar-bg" role="progressbar" aria-valuenow="${p.pourcentage}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar" id="bar-${i}" style="width:0;background:${barColors[i % barColors.length]}"></div>
+        </div>
+      </div>`).join('');
+
+    // Animation différée pour la transition CSS
+    requestAnimationFrame(() => setTimeout(() => {
+      progs.forEach((p, i) => {
+        const b = document.getElementById(`bar-${i}`);
+        if (b) b.style.width = p.pourcentage + '%';
+      });
+    }, 50));
+  }
+
+  // Sessions passées
+  const now     = new Date();
+  const passees = sessions.filter(s => s.statut === 'terminee' || new Date(s.date_heure) < now);
+  const list    = document.getElementById('sessions-passees');
+
+  if (!passees.length) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px">Aucune session passée</div>';
+    return;
+  }
+
+  const badges = { en_attente:'badge-amber', confirmee:'badge-teal', terminee:'badge-gray', annulee:'badge-gray' };
+  const labels = { en_attente:'En attente',  confirmee:'Confirmée',  terminee:'Terminée',  annulee:'Annulée' };
+
+  list.innerHTML = passees.slice(0, 10).map(s => {
+    const autre = user.role === 'etudiant' ? s.tuteur : s.etudiant;
+    const date  = new Date(s.date_heure).toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+    const ini   = autre ? (autre[0] + (autre.split(' ')[1]?.[0] || '')).toUpperCase() : '?';
+    return `<div class="session-row">
+      <div class="sess-av">${ini}</div>
+      <div>
+        <div class="sess-name">${autre || '—'}</div>
+        <div class="sess-sub">${s.matiere || '—'}</div>
+      </div>
+      <div class="sess-time">${date}</div>
+      <span class="badge ${badges[s.statut] || 'badge-gray'}">${labels[s.statut] || s.statut}</span>
+    </div>`;
+  }).join('');
+})();
+</script>
+{% endblock %}

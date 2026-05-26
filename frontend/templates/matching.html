@@ -1,0 +1,266 @@
+{% extends "app_base.html" %}
+{% set active = 'matching' %}
+{% block title %}Trouver un tuteur{% endblock %}
+{% block topbar_title %}Trouver un tuteur{% endblock %}
+
+{% block content %}
+<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+  <input id="search-q" class="form-input" placeholder="Rechercher par nom, université..."
+         style="max-width:320px" aria-label="Recherche par nom ou université">
+  <select id="search-mat" class="form-select" style="max-width:220px" aria-label="Filtrer par matière">
+    <option value="">Toutes les matières</option>
+  </select>
+  <button class="btn btn-primary btn-sm" id="btn-search">
+    <i class="ti ti-search"></i> Rechercher
+  </button>
+</div>
+
+<div class="tuteurs-grid" id="tuteurs-grid">
+  <div style="color:var(--text3);font-size:13px">Chargement...</div>
+</div>
+
+<!-- Modal demande de session -->
+<div id="modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="card" style="width:440px;max-width:95vw">
+
+    <!-- En-tête tuteur -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+      <div id="modal-av" class="tutor-av" style="background:rgba(124,110,247,0.2);color:#a89ef9;width:46px;height:46px;font-size:16px"></div>
+      <div>
+        <div id="modal-title" style="font-size:15px;font-weight:600"></div>
+        <div id="modal-sub" style="font-size:12px;color:var(--text3)"></div>
+      </div>
+    </div>
+
+    <!-- Matière enseignée par ce tuteur -->
+    <div class="form-group">
+      <label class="form-label" for="m-matiere">
+        <i class="ti ti-book" style="font-size:12px;margin-right:4px"></i>Matière
+      </label>
+      <select id="m-matiere" class="form-select"></select>
+      <div id="m-matiere-empty" style="display:none;font-size:12px;color:#f5a623;margin-top:6px">
+        <i class="ti ti-alert-triangle" style="font-size:11px"></i>
+        Ce tuteur n'a pas encore renseigné ses matières.
+      </div>
+    </div>
+
+    <!-- Date -->
+    <div class="form-group">
+      <label class="form-label" for="m-date">
+        <i class="ti ti-calendar" style="font-size:12px;margin-right:4px"></i>Date &amp; heure
+      </label>
+      <input id="m-date" type="datetime-local" class="form-input">
+    </div>
+
+    <!-- Durée -->
+    <div class="form-group">
+      <label class="form-label" for="m-duree">
+        <i class="ti ti-clock" style="font-size:12px;margin-right:4px"></i>Durée
+      </label>
+      <select id="m-duree" class="form-select">
+        <option value="30">30 minutes</option>
+        <option value="60" selected>1 heure</option>
+        <option value="90">1h30</option>
+        <option value="120">2 heures</option>
+        <option value="180">3 heures</option>
+      </select>
+    </div>
+
+    <!-- Notes optionnelles -->
+    <div class="form-group">
+      <label class="form-label" for="m-notes">
+        <i class="ti ti-notes" style="font-size:12px;margin-right:4px"></i>Message au tuteur (optionnel)
+      </label>
+      <textarea id="m-notes" class="form-input" rows="2"
+                placeholder="Précisez vos besoins, le niveau, les chapitres..."
+                style="resize:vertical;min-height:60px"></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-outline" id="btn-annuler-modal">Annuler</button>
+      <button class="btn btn-primary" id="btn-confirm-session" style="flex:1;justify-content:center">
+        <i class="ti ti-send"></i> Envoyer la demande
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+let tuteurSelectionne = null;
+
+// Charge les matières dans le filtre de recherche
+async function chargerFiltresMatieres() {
+  try {
+    const mats = await API.get('/api/tuteurs/matieres-liste');
+    const sel  = document.getElementById('search-mat');
+    mats.forEach(m => sel.innerHTML += `<option value="${m.nom}">${m.nom}</option>`);
+  } catch(e) { console.error(e); }
+}
+
+async function chargerTuteurs(q = '', mat = '') {
+  const grid = document.getElementById('tuteurs-grid');
+  grid.innerHTML = '<div style="color:var(--text3);font-size:13px">Chargement...</div>';
+  try {
+    const params = new URLSearchParams();
+    if (q)   params.set('q', q);
+    if (mat) params.set('matiere', mat);
+    const tuteurs = await API.get('/api/tuteurs/?' + params.toString());
+
+    if (!tuteurs.length) {
+      grid.innerHTML = '<div style="color:var(--text3)">Aucun tuteur trouvé</div>';
+      return;
+    }
+    grid.innerHTML = tuteurs.map(t => {      const stars = '★'.repeat(Math.round(t.note_moy||0)) + '☆'.repeat(5-Math.round(t.note_moy||0));
+      const tags  = t.matieres.slice(0,4).map(m => `<span class="tag">${m}</span>`).join('');
+      const ini   = (t.prenom[0]+t.nom[0]).toUpperCase();
+      // Sérialisation sécurisée pour l'attribut data
+      return `<div class="tutor-card" role="button" tabindex="0"
+                   data-tuteur='${JSON.stringify(t).replace(/'/g,"&#39;")}'
+                   onclick="ouvrirModal(this)"
+                   onkeydown="if(event.key==='Enter')ouvrirModal(this)">
+        <div class="tutor-head">
+          <div class="tutor-av" style="background:rgba(124,110,247,0.2);color:#a89ef9">${ini}</div>
+          <div>
+            <div class="tutor-name">${t.prenom} ${t.nom}</div>
+            <div class="tutor-uni">${t.niveau||''} · ${t.universite||''}</div>
+          </div>
+        </div>
+        <div class="tags">${tags || '<span style="color:var(--text3);font-size:11px">Aucune matière renseignée</span>'}</div>
+        <div class="tutor-footer">
+          <span class="stars">${stars} <span style="color:var(--text3)">${(t.note_moy||0).toFixed(1)}</span></span>
+          <span class="badge badge-purple">${t.nb_sessions} sessions</span>
+        </div>
+        <div id="dispos-${t.id}" style="margin-top:10px;font-size:11px;color:var(--text3)">
+          <i class="ti ti-loader" style="font-size:11px"></i> Chargement créneaux...
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-primary btn-sm" style="flex:1;justify-content:center"
+            onclick="event.stopPropagation();ouvrirModal(this.closest('.tutor-card'))">
+            <i class="ti ti-calendar-plus"></i> Demander
+          </button>
+          <button class="btn btn-outline btn-sm" style="flex:1;justify-content:center"
+            onclick="event.stopPropagation();contacterTuteur(${t.id})">
+            <i class="ti ti-message"></i> Message
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+    // Charge les disponibilités de chaque tuteur en parallèle
+    tuteurs.forEach(t => chargerDisposTuteur(t.id));
+  } catch(e) {
+    grid.innerHTML = `<div style="color:#f56565">${e.message}</div>`;
+  }
+}
+
+function ouvrirModal(el) {
+  const t = JSON.parse(el.dataset.tuteur);
+  tuteurSelectionne = t.id;
+
+  // En-tête
+  document.getElementById('modal-av').textContent    = (t.prenom[0]+t.nom[0]).toUpperCase();
+  document.getElementById('modal-title').textContent = `${t.prenom} ${t.nom}`;
+  document.getElementById('modal-sub').textContent   = `${t.niveau||''} · ${t.universite||''}`;
+
+  // Matières du tuteur
+  const sel   = document.getElementById('m-matiere');
+  const empty = document.getElementById('m-matiere-empty');
+  if (t.matieres.length) {
+    sel.innerHTML = t.matieres.map(m => `<option value="${m}">${m}</option>`).join('');
+    sel.style.display  = 'block';
+    empty.style.display = 'none';
+  } else {
+    sel.innerHTML = '<option value="">— Aucune matière —</option>';
+    sel.style.display  = 'none';
+    empty.style.display = 'block';
+  }
+
+  // Date minimum = maintenant + 1h
+  const min = new Date(Date.now() + 3600000);
+  min.setSeconds(0, 0);
+  document.getElementById('m-date').min   = min.toISOString().slice(0,16);
+  document.getElementById('m-date').value = min.toISOString().slice(0,16);
+
+  document.getElementById('modal').classList.add('open');
+}
+
+function fermerModal() {
+  document.getElementById('modal').classList.remove('open');
+  tuteurSelectionne = null;
+  document.getElementById('m-notes').value = '';
+}
+
+async function contacterTuteur(tuteurId) {
+  // Envoie un premier message vide pour créer la conversation, puis redirige
+  try {
+    await API.post('/api/messages/', {
+      destinataire_id: tuteurId,
+      contenu: '👋 Bonjour, je souhaite en savoir plus sur vos cours.',
+    });
+  } catch(e) {
+    // La conversation existe peut-être déjà, on redirige quand même
+  }
+  window.location.href = `/messagerie?avec=${tuteurId}`;
+}
+
+document.getElementById('btn-confirm-session').onclick = async () => {
+  const btn        = document.getElementById('btn-confirm-session');
+  const matiere_nom = document.getElementById('m-matiere').value;
+  const date_heure  = document.getElementById('m-date').value;
+  const duree_min   = parseInt(document.getElementById('m-duree').value, 10);
+  const notes       = document.getElementById('m-notes').value.trim();
+
+  if (!date_heure) { toast('Veuillez choisir une date', 'error'); return; }
+  if (!matiere_nom) { toast('Veuillez choisir une matière', 'error'); return; }
+
+  btn.disabled = true;
+  try {
+    await API.post('/api/sessions/', { tuteur_id: tuteurSelectionne, matiere_nom, date_heure, duree_min, notes });
+    toast('Demande envoyée au tuteur !');
+    fermerModal();
+  } catch(e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById('btn-annuler-modal').onclick = fermerModal;
+document.getElementById('btn-search').onclick = () =>
+  chargerTuteurs(document.getElementById('search-q').value.trim(), document.getElementById('search-mat').value);
+document.getElementById('search-q').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-search').click();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fermerModal(); });
+
+chargerFiltresMatieres();
+chargerTuteurs();
+
+async function chargerDisposTuteur(tid) {
+  try {
+    const [dispos, heures] = await Promise.all([
+      API.get(`/api/disponibilites/tuteur/${tid}`),
+      API.get(`/api/disponibilites/heures/tuteur/${tid}`),
+    ]);
+    const el = document.getElementById(`dispos-${tid}`);
+    if (!el) return;
+    const JOURS_FR = {lundi:'Lun',mardi:'Mar',mercredi:'Mer',jeudi:'Jeu',vendredi:'Ven',samedi:'Sam',dimanche:'Dim'};
+    let html = '';
+    if (dispos.length) {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">'
+        + dispos.map(d => `<span style="background:rgba(124,110,247,0.1);color:var(--purple2);padding:2px 7px;border-radius:10px;font-size:10px">
+            ${JOURS_FR[d.jour]} ${d.heure_debut}–${d.heure_fin}</span>`).join('')
+        + '</div>';
+    }
+    if (heures.length) {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:4px">'
+        + heures.map(h => `<span style="background:rgba(62,207,170,0.1);color:var(--teal);padding:2px 7px;border-radius:10px;font-size:10px">
+            ${h.matiere_nom} · ${h.heures_par_semaine}h/sem</span>`).join('')
+        + '</div>';
+    }
+    el.innerHTML = html || '<span style="color:var(--text3);font-size:11px">Aucun créneau renseigné</span>';
+  } catch { document.getElementById(`dispos-${tid}`)?.remove(); }
+}
+</script>
+{% endblock %}

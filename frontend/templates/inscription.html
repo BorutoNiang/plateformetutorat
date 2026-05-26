@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Inscription{% endblock %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-box" style="max-width:480px">
+    <div class="auth-logo">
+      <i class="ti ti-school" style="color:var(--purple);margin-right:8px"></i>Uni<span>Tutor</span>
+    </div>
+    <div class="auth-sub">Créez votre compte</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label class="form-label" for="prenom">Prénom</label>
+        <input id="prenom" class="form-input" placeholder="Amara" autocomplete="given-name">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="nom">Nom</label>
+        <input id="nom" class="form-input" placeholder="Mbaye" autocomplete="family-name">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="email">Email</label>
+      <input id="email" type="email" class="form-input" placeholder="vous@universite.sn" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Mot de passe</label>
+      <input id="password" type="password" class="form-input" placeholder="••••••••" autocomplete="new-password">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label class="form-label" for="role">Rôle</label>
+        <select id="role" class="form-select">
+          <option value="etudiant">Étudiant</option>
+          <option value="tuteur">Tuteur</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="universite">Université</label>
+        <input id="universite" class="form-input" placeholder="UCAD">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="niveau">Niveau</label>
+      <input id="niveau" class="form-input" placeholder="Licence 3, Master 1...">
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;justify-content:center" id="btn-register">
+      Créer mon compte
+    </button>
+    <div class="auth-link" style="margin-top:16px">Déjà inscrit ? <a href="/">Se connecter</a></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('btn-register').onclick = async () => {
+  const btn = document.getElementById('btn-register');
+  const prenom     = document.getElementById('prenom').value.trim();
+  const nom        = document.getElementById('nom').value.trim();
+  const email      = document.getElementById('email').value.trim();
+  const mot_de_passe = document.getElementById('password').value;
+  const role       = document.getElementById('role').value;
+  const universite = document.getElementById('universite').value.trim();
+  const niveau     = document.getElementById('niveau').value.trim();
+
+  if (!prenom || !nom || !email || !mot_de_passe) {
+    toast('Veuillez remplir tous les champs obligatoires', 'error');
+    return;
+  }
+  if (mot_de_passe.length < 6) {
+    toast('Le mot de passe doit contenir au moins 6 caractères', 'error');
+    return;
+  }
+
+  btn.textContent = 'Création...';
+  btn.disabled    = true;
+  try {
+    const res = await API.post('/api/auth/inscription', { prenom, nom, email, mot_de_passe, role, universite, niveau });
+    toast('Compte créé !');
+    setTimeout(() => window.location.href = res.utilisateur.role === 'tuteur' ? '/tuteur/dashboard' : '/tableau-de-bord', 800);
+  } catch (e) {
+    toast(e.message, 'error');
+    btn.textContent = 'Créer mon compte';
+    btn.disabled    = false;
+  }
+};
+</script>
+{% endblock %}

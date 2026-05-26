@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Connexion{% endblock %}
+{% block body %}
+<div class="auth-page">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <i class="ti ti-school" style="color:var(--purple);margin-right:8px"></i>Uni<span>Tutor</span>
+    </div>
+    <div class="auth-sub">Plateforme de tutorat universitaire</div>
+
+    <div class="form-group">
+      <label class="form-label" for="email">Adresse email</label>
+      <input id="email" type="email" class="form-input" placeholder="vous@universite.sn" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Mot de passe</label>
+      <input id="password" type="password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" id="btn-login">
+      Se connecter
+    </button>
+    <div class="auth-divider">ou</div>
+    <div class="auth-link">Pas encore de compte ? <a href="/inscription">S'inscrire</a></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function seConnecter() {
+  const btn   = document.getElementById('btn-login');
+  const email = document.getElementById('email').value.trim();
+  const mdp   = document.getElementById('password').value;
+
+  if (!email || !mdp) { toast('Veuillez remplir tous les champs', 'error'); return; }
+
+  btn.textContent = 'Connexion...';
+  btn.disabled    = true;
+  try {
+    const res = await API.post('/api/auth/connexion', { email, mot_de_passe: mdp });
+    window.location.href = res.utilisateur.role === 'tuteur' ? '/tuteur/dashboard' : '/tableau-de-bord';
+  } catch (e) {
+    toast(e.message, 'error');
+    btn.textContent = 'Se connecter';
+    btn.disabled    = false;
+  }
+}
+
+document.getElementById('btn-login').onclick = seConnecter;
+document.getElementById('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') seConnecter();
+});
+</script>
+{% endblock %}

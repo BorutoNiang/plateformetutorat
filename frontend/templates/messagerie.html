@@ -1,0 +1,268 @@
+{% extends "app_base.html" %}
+{% set active = 'messages' %}
+{% block title %}Messagerie{% endblock %}
+{% block topbar_title %}Messagerie{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/socket.io@4.7.5/client-dist/socket.io.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+  <!-- Colonne gauche -->
+  <div class="conv-list">
+    <div class="conv-search">
+      <input class="form-input" placeholder="Rechercher..." id="search-conv"
+             style="font-size:12px;padding:7px 12px" aria-label="Rechercher">
+    </div>
+
+    <!-- Nouveau message -->
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+      <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center" id="btn-nouveau">
+        <i class="ti ti-edit"></i> Nouveau message
+      </button>
+    </div>
+
+    <!-- Conversations existantes -->
+    <div style="padding:8px 12px 4px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">
+      Conversations
+    </div>
+    <div id="conv-items" style="flex:1;overflow-y:auto">
+      <div style="padding:14px;color:var(--text3);font-size:13px">Chargement...</div>
+    </div>
+  </div>
+
+  <!-- Fenêtre de chat -->
+  <div class="chat-window">
+    <div class="chat-head" id="chat-head">
+      <div style="color:var(--text3);font-size:13px">Sélectionnez une conversation ou démarrez-en une nouvelle</div>
+    </div>
+    <div class="chat-messages" id="chat-messages" role="log" aria-live="polite"></div>
+    <div class="chat-footer" id="chat-footer" style="display:none">
+      <input class="chat-input-field" id="msg-input" placeholder="Écrire un message..." aria-label="Message">
+      <button class="chat-send" id="btn-send" aria-label="Envoyer">
+        <i class="ti ti-send"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouveau message -->
+<div id="modal-contacts" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="card" style="width:420px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column">
+    <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span id="modal-contacts-titre">Nouveau message</span>
+      <button onclick="fermerModalContacts()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <input id="search-contact" class="form-input" placeholder="Rechercher..." style="margin-bottom:12px">
+    <div id="contacts-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:4px">
+      <div style="color:var(--text3);font-size:13px;padding:8px">Chargement...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+let moi = null, autreId = null, socket = null;
+let tousLesContacts = [];
+
+(async () => {
+  moi    = await checkAuth();
+  if (!moi) return;
+
+  // Label du modal selon le rôle
+  document.getElementById('modal-contacts-titre').textContent =
+    moi.role === 'etudiant' ? 'Contacter un tuteur' : 'Contacter un étudiant';
+  document.getElementById('btn-nouveau').innerHTML =
+    `<i class="ti ti-edit"></i> ${moi.role === 'etudiant' ? 'Contacter un tuteur' : 'Contacter un étudiant'}`;
+
+  socket = io();
+  socket.on('nouveau_message', m => {
+    if (autreId && (m.expediteur_id === autreId || m.destinataire_id === autreId)) {
+      ajouterMessage(m);
+    }
+    // Rafraîchit la liste des conversations en arrière-plan
+    chargerConversations(false);
+  });
+
+  await Promise.all([chargerConversations(true), chargerContacts()]);
+
+  // Ouvre automatiquement si ?avec= dans l'URL
+  const avecId = parseInt(new URLSearchParams(window.location.search).get('avec'));
+  if (avecId) {
+    const contact = tousLesContacts.find(c => c.id === avecId);
+    if (contact) ouvrirConv(contact.id, `${contact.prenom} ${contact.nom}`, contact.role);
+    window.history.replaceState({}, '', '/messagerie');
+  }
+})();
+
+// ── Contacts ─────────────────────────────────────────────────
+async function chargerContacts() {
+  try {
+    tousLesContacts = await API.get('/api/messages/contacts');
+  } catch(e) { console.error(e); }
+}
+
+function ouvrirModalContacts() {
+  afficherContacts(tousLesContacts);
+  document.getElementById('modal-contacts').classList.add('open');
+  document.getElementById('search-contact').value = '';
+  document.getElementById('search-contact').focus();
+}
+
+function fermerModalContacts() {
+  document.getElementById('modal-contacts').classList.remove('open');
+}
+
+function afficherContacts(liste) {
+  const el = document.getElementById('contacts-list');
+  if (!liste.length) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:8px">
+      ${moi?.role === 'tuteur' ? 'Aucun étudiant pour l\'instant — ils apparaîtront après leur première demande de session.' : 'Aucun tuteur disponible.'}
+    </div>`;
+    return;
+  }
+  el.innerHTML = liste.map(u => {
+    const ini   = (u.prenom[0] + u.nom[0]).toUpperCase();
+    const style = couleurAv(u.role);
+    return `<div onclick="demarrerConversation(${u.id},'${u.prenom} ${u.nom}','${u.role}')"
+                 style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px;cursor:pointer;transition:background .15s"
+                 onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                 onmouseout="this.style.background='transparent'">
+      <div class="sess-av" style="width:36px;height:36px;font-size:12px;flex-shrink:0;${style}">${ini}</div>
+      <div>
+        <div style="font-size:13px;font-weight:500">${u.prenom} ${u.nom}</div>
+        <div style="font-size:11px;color:var(--text3)">${u.universite || ''} ${u.niveau ? '· '+u.niveau : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function demarrerConversation(id, nom, role) {
+  fermerModalContacts();
+  ouvrirConv(id, nom, role);
+}
+
+// Filtre de recherche dans le modal
+document.getElementById('search-contact').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  afficherContacts(tousLesContacts.filter(u =>
+    `${u.prenom} ${u.nom} ${u.universite||''}`.toLowerCase().includes(q)
+  ));
+});
+
+document.getElementById('btn-nouveau').onclick = ouvrirModalContacts;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fermerModalContacts(); });
+
+// ── Conversations ─────────────────────────────────────────────
+async function chargerConversations(afficherLoader = true) {
+  const el = document.getElementById('conv-items');
+  if (afficherLoader) el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px">Chargement...</div>';
+  try {
+    const convs = await API.get('/api/messages/conversations');
+    if (!convs.length) {
+      el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px">Aucune conversation</div>';
+      return;
+    }
+    const q = document.getElementById('search-conv').value.toLowerCase();
+    const filtrees = q ? convs.filter(c => `${c.utilisateur.prenom} ${c.utilisateur.nom}`.toLowerCase().includes(q)) : convs;
+    el.innerHTML = filtrees.map(c => {
+      const u   = c.utilisateur;
+      const ini = (u.prenom[0] + u.nom[0]).toUpperCase();
+      const actif = autreId === u.id ? 'active' : '';
+      return `<div class="conv-item ${actif}" id="conv-${u.id}"
+                   onclick="ouvrirConv(${u.id},'${u.prenom} ${u.nom}','${u.role}')"
+                   role="button" tabindex="0">
+        <div class="sess-av" style="width:34px;height:34px;font-size:12px;${couleurAv(u.role)};flex-shrink:0">${ini}</div>
+        <div style="flex:1;min-width:0">
+          <div class="conv-name">${u.prenom} ${u.nom}</div>
+          <div class="conv-preview">${(c.dernier_message?.contenu||'').replace(/</g,'&lt;')}</div>
+        </div>
+        ${c.non_lus ? '<span class="unread-dot"></span>' : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="padding:14px;color:#f56565;font-size:13px">${e.message}</div>`;
+  }
+}
+
+// Filtre de recherche dans les conversations
+document.getElementById('search-conv').addEventListener('input', () => chargerConversations(false));
+
+// ── Chat ──────────────────────────────────────────────────────
+async function ouvrirConv(id, nom, role) {
+  autreId = id;
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`conv-${id}`)?.classList.add('active');
+
+  const ini = (nom[0] + (nom.split(' ')[1]?.[0]||'')).toUpperCase();
+  document.getElementById('chat-head').innerHTML = `
+    <div class="sess-av" style="width:36px;height:36px;font-size:12px;${couleurAv(role)}">${ini}</div>
+    <div>
+      <div style="font-size:13px;font-weight:500">${nom}</div>
+      <div style="font-size:11px;color:var(--text3)">${role === 'tuteur' ? 'Tuteur' : 'Étudiant'}</div>
+    </div>`;
+
+  document.getElementById('chat-footer').style.display = 'flex';
+  document.getElementById('msg-input').focus();
+
+  if (socket && moi) socket.emit('rejoindre', { user1: moi.id, user2: id });
+
+  try {
+    const msgs = await API.get(`/api/messages/${id}`);
+    afficherMessages(msgs);
+    chargerConversations(false); // met à jour les non-lus
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function afficherMessages(msgs) {
+  const el = document.getElementById('chat-messages');
+  el.innerHTML = msgs.length ? msgs.map(rendreBulle).join('') :
+    '<div style="text-align:center;color:var(--text3);font-size:13px;margin-top:40px">Aucun message — dites bonjour 👋</div>';
+  el.scrollTop = el.scrollHeight;
+}
+
+function ajouterMessage(m) {
+  const el = document.getElementById('chat-messages');
+  // Retire le message vide si présent
+  const vide = el.querySelector('[data-vide]');
+  if (vide) vide.remove();
+  el.insertAdjacentHTML('beforeend', rendreBulle(m));
+  el.scrollTop = el.scrollHeight;
+}
+
+function rendreBulle(m) {
+  const estMoi  = m.expediteur_id === moi?.id;
+  const heure   = new Date(m.envoye_le).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  const contenu = m.contenu.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<div class="msg ${estMoi ? 'me' : 'other'}">
+    <div class="msg-bubble">${contenu}</div>
+    <div class="msg-time">${heure}</div>
+  </div>`;
+}
+
+async function envoyerMessage() {
+  const input   = document.getElementById('msg-input');
+  const contenu = input.value.trim();
+  if (!contenu || !autreId) return;
+  input.value = '';
+
+  if (socket && moi) {
+    socket.emit('message', { expediteur_id: moi.id, destinataire_id: autreId, contenu });
+  } else {
+    try {
+      const m = await API.post('/api/messages/', { destinataire_id: autreId, contenu });
+      ajouterMessage(m);
+    } catch(e) { toast(e.message, 'error'); }
+  }
+}
+
+document.getElementById('btn-send').onclick = envoyerMessage;
+document.getElementById('msg-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envoyerMessage(); }
+});
+</script>
+{% endblock %}

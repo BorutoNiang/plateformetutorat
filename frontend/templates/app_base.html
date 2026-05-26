@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <i class="ti ti-school" style="color:var(--purple);font-size:20px"></i>
+      Uni<span>Tutor</span>
+      <span class="dot"></span>
+    </div>
+    <div class="nav-section">Principal</div>
+
+    <!-- Navigation étudiant -->
+    <div id="nav-etudiant" style="display:none">
+      <a href="/tableau-de-bord" class="nav-item {% if active=='dashboard' %}active{% endif %}">
+        <i class="ti ti-layout-dashboard icon"></i> Tableau de bord
+      </a>
+      <a href="/matching" class="nav-item {% if active=='matching' %}active{% endif %}">
+        <i class="ti ti-users icon"></i> Trouver un tuteur
+      </a>
+      <a href="/messagerie" class="nav-item {% if active=='messages' %}active{% endif %}">
+        <i class="ti ti-message icon"></i> Messagerie
+        <span id="badge-msg" style="margin-left:auto;display:none" class="badge badge-purple">0</span>
+      </a>
+      <a href="/suivi" class="nav-item {% if active=='suivi' %}active{% endif %}">
+        <i class="ti ti-chart-bar icon"></i> Suivi
+      </a>
+    </div>
+
+    <!-- Navigation tuteur -->
+    <div id="nav-tuteur" style="display:none">
+      <a href="/tuteur/dashboard" class="nav-item {% if active=='dashboard' %}active{% endif %}">
+        <i class="ti ti-layout-dashboard icon"></i> Tableau de bord
+      </a>
+      <a href="/tuteur/sessions" class="nav-item {% if active=='sessions' %}active{% endif %}">
+        <i class="ti ti-calendar icon"></i> Mes sessions
+      </a>
+      <a href="/tuteur/matieres" class="nav-item {% if active=='matieres' %}active{% endif %}">
+        <i class="ti ti-book icon"></i> Mes matières
+      </a>
+      <a href="/tuteur/disponibilites" class="nav-item {% if active=='disponibilites' %}active{% endif %}">
+        <i class="ti ti-calendar-time icon"></i> Disponibilités
+      </a>
+      <a href="/messagerie" class="nav-item {% if active=='messages' %}active{% endif %}">
+        <i class="ti ti-message icon"></i> Messagerie
+        <span id="badge-msg" style="margin-left:auto;display:none" class="badge badge-purple">0</span>
+      </a>
+    </div>
+
+    <div class="nav-bottom">
+      <div class="nav-item" id="nav-profil" style="cursor:pointer">
+        <div class="avatar" id="sidebar-av" style="width:26px;height:26px;font-size:10px"></div>
+        <span id="sidebar-nom">Chargement...</span>
+      </div>
+      <div class="nav-item" id="btn-logout" style="cursor:pointer">
+        <i class="ti ti-logout icon"></i> Déconnexion
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <span class="topbar-title">{% block topbar_title %}{% endblock %}</span>
+      <div class="topbar-right">
+        <i class="ti ti-bell" style="font-size:18px;color:var(--text2);cursor:pointer"></i>
+        <div class="avatar" id="topbar-av"></div>
+      </div>
+    </div>
+    <div class="page-content" id="page-content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async () => {
+  const u = await checkAuth();
+  if (!u) return;
+  document.getElementById('sidebar-av').textContent  = initiales(u.prenom, u.nom);
+  document.getElementById('topbar-av').textContent   = initiales(u.prenom, u.nom);
+  document.getElementById('sidebar-nom').textContent = u.prenom;
+
+  // Affiche la nav selon le rôle
+  document.getElementById(u.role === 'tuteur' ? 'nav-tuteur' : 'nav-etudiant').style.display = 'block';
+
+  // Badge messages non lus
+  try {
+    const convs = await API.get('/api/messages/conversations');
+    const nonLus = convs.reduce((acc, c) => acc + (c.non_lus || 0), 0);
+    if (nonLus > 0) {
+      const badge = document.getElementById('badge-msg');
+      if (badge) { badge.textContent = nonLus; badge.style.display = 'inline-flex'; }
+    }
+  } catch {}
+})();
+
+document.getElementById('btn-logout').onclick = async () => {
+  try { await API.post('/api/auth/deconnexion'); } finally { window.location.href = '/'; }
+};
+</script>
+{% block page_scripts %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "app_base.html" %}
+{% set active = 'sessions' %}
+{% block title %}Mes sessions{% endblock %}
+{% block topbar_title %}Mes sessions{% endblock %}
+
+{% block content %}
+<div style="display:flex;gap:10px;margin-bottom:20px">
+  <button class="btn btn-sm btn-primary" id="f-all">Toutes</button>
+  <button class="btn btn-sm btn-outline" id="f-attente">En attente</button>
+  <button class="btn btn-sm btn-outline" id="f-confirmee">Confirmées</button>
+  <button class="btn btn-sm btn-outline" id="f-terminee">Terminées</button>
+</div>
+<div class="sessions-list" id="sessions-list">
+  <div style="color:var(--text3);font-size:13px">Chargement...</div>
+</div>
+
+<!-- Modal : terminer session + noter progression -->
+<div id="modal-terminer" class="modal-overlay" role="dialog" aria-modal="true">
+  <div class="card" style="width:420px;max-width:95vw">
+    <div style="font-size:15px;font-weight:600;margin-bottom:4px">Terminer la session</div>
+    <div id="modal-session-info" style="font-size:12px;color:var(--text3);margin-bottom:20px"></div>
+
+    <div class="form-group">
+      <label class="form-label">
+        <i class="ti ti-chart-bar" style="font-size:12px;margin-right:4px"></i>
+        Progression de l'étudiant en <span id="modal-matiere-nom" style="color:var(--purple2)">cette matière</span>
+      </label>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:8px">
+        <input id="prog-slider" type="range" min="0" max="100" step="5" value="50"
+               style="flex:1;accent-color:var(--purple)"
+               oninput="document.getElementById('prog-val').textContent=this.value+'%'">
+        <span id="prog-val" style="font-size:18px;font-weight:600;color:var(--purple2);font-family:'JetBrains Mono',monospace;min-width:48px">50%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px">
+        <span>Débutant</span><span>Intermédiaire</span><span>Maîtrise</span>
+      </div>
+    </div>
+
+    <div id="modal-no-matiere" style="display:none;padding:10px;background:rgba(245,166,35,0.1);border-radius:8px;font-size:12px;color:#f5a623;margin-bottom:12px">
+      <i class="ti ti-alert-triangle" style="font-size:12px"></i>
+      Aucune matière associée à cette session — la progression ne sera pas enregistrée.
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-outline" onclick="fermerModalTerminer()">Annuler</button>
+      <button class="btn btn-primary" id="btn-confirmer-terminer" style="flex:1;justify-content:center">
+        <i class="ti ti-check-all"></i> Terminer & enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+let toutesLesSessions = [];
+let filtreActif = 'all';
+let sessionATerminer = null;
+
+const badges = {en_attente:'badge-amber', confirmee:'badge-teal', terminee:'badge-gray', annulee:'badge-gray'};
+const labels = {en_attente:'En attente', confirmee:'Confirmée', terminee:'Terminée', annulee:'Annulée'};
+
+(async () => {
+  toutesLesSessions = await API.get('/api/sessions/');
+  renderSessions();
+})();
+
+function renderSessions() {
+  const list     = document.getElementById('sessions-list');
+  const filtered = filtreActif === 'all'
+    ? toutesLesSessions
+    : toutesLesSessions.filter(s => s.statut === filtreActif);
+
+  if (!filtered.length) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0">Aucune session</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(s => {
+    const ini     = s.etudiant ? (s.etudiant[0]+(s.etudiant.split(' ')[1]?.[0]||'')).toUpperCase() : '?';
+    const actions = s.statut === 'en_attente' ? `
+      <button class="btn btn-sm" style="background:rgba(62,207,170,0.15);color:var(--teal);border:none"
+        onclick="changerStatut(${s.id},'confirmee',this)"><i class="ti ti-check"></i> Confirmer</button>
+      <button class="btn btn-sm btn-outline"
+        onclick="changerStatut(${s.id},'annulee',this)"><i class="ti ti-x"></i></button>` : '';
+    const terminer = s.statut === 'confirmee' && new Date(s.date_heure) < new Date() ? `
+      <button class="btn btn-sm btn-outline"
+        onclick="ouvrirModalTerminer(${s.id})">
+        <i class="ti ti-check-all"></i> Terminer</button>` : '';
+
+    return `<div class="session-row">
+      <div class="sess-av">${ini}</div>
+      <div>
+        <div class="sess-name">${s.etudiant||'Étudiant'}</div>
+        <div class="sess-sub">${s.matiere||'—'} · ${s.duree_min} min</div>
+      </div>
+      <div class="sess-time">${formatDate(s.date_heure)}</div>
+      <span class="badge ${badges[s.statut]||'badge-gray'}">${labels[s.statut]||s.statut}</span>
+      ${actions}${terminer}
+    </div>`;
+  }).join('');
+}
+
+// ── Modal terminer ────────────────────────────────────────────
+function ouvrirModalTerminer(id) {
+  sessionATerminer = toutesLesSessions.find(s => s.id === id);
+  if (!sessionATerminer) return;
+
+  document.getElementById('modal-session-info').textContent =
+    `${sessionATerminer.etudiant||'Étudiant'} · ${formatDate(sessionATerminer.date_heure)}`;
+
+  const aMatiere = !!sessionATerminer.matiere;
+  document.getElementById('modal-matiere-nom').textContent  = sessionATerminer.matiere || 'cette matière';
+  document.getElementById('modal-no-matiere').style.display = aMatiere ? 'none' : 'block';
+
+  // Pré-remplir avec la progression actuelle si elle existe
+  document.getElementById('prog-slider').value = 50;
+  document.getElementById('prog-val').textContent = '50%';
+
+  document.getElementById('modal-terminer').classList.add('open');
+}
+
+function fermerModalTerminer() {
+  document.getElementById('modal-terminer').classList.remove('open');
+  sessionATerminer = null;
+}
+
+document.getElementById('btn-confirmer-terminer').onclick = async () => {
+  if (!sessionATerminer) return;
+  const btn        = document.getElementById('btn-confirmer-terminer');
+  const progression = parseInt(document.getElementById('prog-slider').value);
+  btn.disabled = true;
+  try {
+    await API.put(`/api/sessions/${sessionATerminer.id}/statut`, {
+      statut: 'terminee',
+      progression,
+    });
+    toast('Session terminée — progression enregistrée !');
+    fermerModalTerminer();
+    toutesLesSessions = await API.get('/api/sessions/');
+    renderSessions();
+  } catch(e) {
+    toast(e.message, 'error');
+    btn.disabled = false;
+  }
+};
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fermerModalTerminer(); });
+
+// ── Autres actions ────────────────────────────────────────────
+async function changerStatut(id, statut, btn) {
+  btn.disabled = true;
+  try {
+    await API.put(`/api/sessions/${id}/statut`, { statut });
+    toast(statut === 'confirmee' ? 'Session confirmée !' : 'Session annulée');
+    toutesLesSessions = await API.get('/api/sessions/');
+    renderSessions();
+  } catch(e) {
+    toast(e.message, 'error');
+    btn.disabled = false;
+  }
+}
+
+// ── Filtres ───────────────────────────────────────────────────
+['all','attente','confirmee','terminee'].forEach(f => {
+  const id = f === 'all' ? 'f-all' : `f-${f}`;
+  document.getElementById(id).onclick = () => {
+    filtreActif = f === 'attente' ? 'en_attente' : f;
+    document.querySelectorAll('[id^="f-"]').forEach(b => b.className = 'btn btn-sm btn-outline');
+    document.getElementById(id).className = 'btn btn-sm btn-primary';
+    renderSessions();
+  };
+});
+</script>
+{% endblock %}

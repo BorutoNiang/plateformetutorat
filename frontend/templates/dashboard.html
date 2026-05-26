@@ -1,0 +1,102 @@
+{% extends "app_base.html" %}
+{% set active = 'dashboard' %}
+{% block title %}Tableau de bord{% endblock %}
+{% block topbar_title %}Tableau de bord{% endblock %}
+
+{% block content %}
+<div class="stat-grid" id="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Sessions ce mois</div>
+    <div class="stat-val" id="s-sessions">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Heures de tutorat</div>
+    <div class="stat-val" id="s-heures">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Tuteurs actifs</div>
+    <div class="stat-val" id="s-tuteurs">—</div>
+    <div class="stat-sub">disponibles</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+  <div>
+    <div class="section-title">Prochaines sessions</div>
+    <div class="sessions-list" id="sessions-list">
+      <div style="color:var(--text3);font-size:13px">Chargement...</div>
+    </div>
+  </div>
+  <div>
+    <div class="section-title">Ma progression</div>
+    <div id="prog-grid" style="display:flex;flex-direction:column;gap:10px">
+      <div style="color:var(--text3);font-size:13px">Chargement...</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const barColors = ['#7c6ef7','#3ecfaa','#f5a623','#f56565','#a89ef9'];
+
+(async () => {
+  const [user, sessions, progs] = await Promise.all([
+    API.get('/api/auth/moi'),
+    API.get('/api/sessions/'),
+    API.get('/api/progression/'),
+  ]);
+
+  const now     = new Date();
+  const futures = sessions.filter(s => new Date(s.date_heure) > now);
+  const mois    = sessions.filter(s => {
+    const d = new Date(s.date_heure);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+
+  document.getElementById('s-sessions').textContent = mois.length;
+  document.getElementById('s-heures').textContent   = Math.round(mois.reduce((a,s) => a+(s.duree_min||60),0)/60)+'h';
+  document.getElementById('s-tuteurs').textContent  = new Set(mois.map(s=>s.tuteur).filter(Boolean)).size;
+
+  // Sessions à venir
+  const badges = {en_attente:'badge-amber',confirmee:'badge-teal',terminee:'badge-gray',annulee:'badge-gray'};
+  const labels = {en_attente:'En attente',confirmee:'Confirmée',terminee:'Terminée',annulee:'Annulée'};
+  const colors = ['background:rgba(124,110,247,0.2);color:#a89ef9','background:rgba(62,207,170,0.15);color:#3ecfaa','background:rgba(245,166,35,0.15);color:#f5a623'];
+  const list = document.getElementById('sessions-list');
+  if (!futures.length) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0">Aucune session à venir — <a href="/matching" style="color:var(--purple2)">trouver un tuteur</a></div>';
+  } else {
+    list.innerHTML = futures.slice(0,5).map((s,i) => {
+      const autre = user.role==='etudiant' ? s.tuteur : s.etudiant;
+      const ini   = autre ? (autre[0]+(autre.split(' ')[1]?.[0]||'')).toUpperCase() : '?';
+      return `<div class="session-row">
+        <div class="sess-av" style="${colors[i%colors.length]}">${ini}</div>
+        <div><div class="sess-name">${autre||'Inconnu'}</div><div class="sess-sub">${s.matiere||'—'}</div></div>
+        <div class="sess-time">${formatDate(s.date_heure)}</div>
+        <span class="badge ${badges[s.statut]||'badge-gray'}">${labels[s.statut]||s.statut}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Progression
+  const grid = document.getElementById('prog-grid');
+  if (!progs.length) {
+    grid.innerHTML = '<div style="color:var(--text3);font-size:13px">Aucune progression enregistrée</div>';
+  } else {
+    grid.innerHTML = progs.map((p,i) => `
+      <div class="progress-card">
+        <div class="progress-head">
+          <span class="progress-subject">${p.matiere}</span>
+          <span class="progress-pct">${p.pourcentage}%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="db-bar-${i}" style="width:0;background:${barColors[i%barColors.length]}"></div>
+        </div>
+      </div>`).join('');
+    requestAnimationFrame(() => setTimeout(() =>
+      progs.forEach((p,i) => { const b=document.getElementById(`db-bar-${i}`); if(b) b.style.width=p.pourcentage+'%'; })
+    , 50));
+  }
+})();
+</script>
+{% endblock %}
