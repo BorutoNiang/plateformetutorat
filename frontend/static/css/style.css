@@ -3,20 +3,20 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:       #0f1117;
-  --bg2:      #171b26;
-  --bg3:      #1e2333;
-  --border:   rgba(255,255,255,0.07);
-  --border2:  rgba(255,255,255,0.13);
-  --purple:   #7c6ef7;
-  --purple2:  #a89ef9;
-  --teal:     #3ecfaa;
-  --text:     #e8eaf0;
-  --text2:    #9aa0b8;
-  --text3:    #5a6080;
+  --bg:       #ffffff;
+  --bg2:      #f4f6fb;
+  --bg3:      #eaecf5;
+  --border:   rgba(30,40,100,0.08);
+  --border2:  rgba(30,40,100,0.15);
+  --purple:   #1e2d78;
+  --purple2:  #3b4fd9;
+  --teal:     #3b4fd9;
+  --text:     #0f1524;
+  --text2:    #4a5270;
+  --text3:    #9199bb;
   --radius:   12px;
   --radius-sm:8px;
-  --shadow:   0 4px 24px rgba(0,0,0,0.4);
+  --shadow:   0 4px 24px rgba(30,45,120,0.08);
 }
 
 html, body {
@@ -186,7 +186,7 @@ html, body {
 }
 .form-input:focus, .form-select:focus { border-color: var(--purple); }
 .form-input::placeholder { color: var(--text3); }
-.form-select option { background: var(--bg3); }
+.form-select option { background: var(--bg); color: var(--text); }
 
 /* ── Progress bars ──────────────── */
 .progress-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
@@ -228,8 +228,7 @@ html, body {
 .msg.me { align-self: flex-end; }
 .msg-bubble { padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; word-break: break-word; }
 .msg.other .msg-bubble { background: var(--bg3); color: var(--text); border-bottom-left-radius: 4px; }
-.msg.me    .msg-bubble { background: var(--purple); color: #fff; border-bottom-right-radius: 4px; }
-.msg-time { font-size: 10px; color: var(--text3); margin-top: 4px; text-align: right; }
+.msg.me    .msg-bubble { background: var(--purple); color: #fff; border-bottom-right-radius: 4px; }.msg-time { font-size: 10px; color: var(--text3); margin-top: 4px; text-align: right; }
 .chat-footer { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
 .chat-input-field {
   flex: 1; background: var(--bg3); border: 1px solid var(--border2);
