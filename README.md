@@ -4,7 +4,7 @@ Plateforme web qui connecte étudiants et tuteurs universitaires pour des sessio
 
 **Stack :** Python / Flask · MySQL · HTML / CSS / JS vanilla · SocketIO
 
-**Démo en ligne :** https://web-production-6b78b.up.railway.app
+**Démo en ligne :** https://plateformetutorat-production.up.railway.app
 
 ---
 
