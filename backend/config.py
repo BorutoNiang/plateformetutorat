@@ -2,7 +2,7 @@ import os
 import sys
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv()  # ignoré si les vars sont déjà définies dans l'environnement
 
 def _build_db_url():
     url = os.environ.get('DATABASE_URL', '')
