@@ -15,6 +15,29 @@ app.config.from_object(Config)
 
 db.init_app(app)
 
+# Override DB URL depuis les variables d'environnement runtime
+# (nécessaire quand config est chargé avant que Railway injecte les vars)
+import os as _os
+_runtime_url = (_os.environ.get('DATABASE_URL') or
+                _os.environ.get('MYSQL_URL') or '')
+if _runtime_url:
+    if _runtime_url.startswith('mysql://'):
+        _runtime_url = _runtime_url.replace('mysql://', 'mysql+mysqlconnector://', 1)
+    if '?' not in _runtime_url:
+        _runtime_url += '?charset=utf8mb4'
+    app.config['SQLALCHEMY_DATABASE_URI'] = _runtime_url
+    print(f"[DB] Runtime override: {_runtime_url[:50]}", file=__import__('sys').stderr)
+else:
+    _h = _os.environ.get('MYSQLHOST') or _os.environ.get('MYSQL_HOST') or ''
+    if _h:
+        _p = _os.environ.get('MYSQLPORT') or '3306'
+        _u = _os.environ.get('MYSQLUSER') or 'root'
+        _pw = _os.environ.get('MYSQLPASSWORD') or ''
+        _db = _os.environ.get('MYSQLDATABASE') or 'railway'
+        _runtime_url = f"mysql+mysqlconnector://{_u}:{_pw}@{_h}:{_p}/{_db}?charset=utf8mb4"
+        app.config['SQLALCHEMY_DATABASE_URI'] = _runtime_url
+        print(f"[DB] Runtime from vars: host={_h} db={_db}", file=__import__('sys').stderr)
+
 # Force utf8mb4 sur chaque connexion
 from sqlalchemy import event, text
 from sqlalchemy.engine import Engine
