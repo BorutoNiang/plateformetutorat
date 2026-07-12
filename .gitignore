@@ -3,6 +3,7 @@ backend/.env
 venv/
 .venv/
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -17,3 +18,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Fichiers de debug Railway
+.railway-rebuild
