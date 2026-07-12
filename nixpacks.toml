@@ -8,4 +8,4 @@ cmds = ["pip install -r backend/requirements.txt"]
 cmds = []
 
 [start]
-cmd = "cd backend && gunicorn --worker-class gevent -w 1 app:app --bind 0.0.0.0:$PORT"
+cmd = "cd backend && python -c \"import os; url=os.environ.get('DATABASE_URL',''); print('DB_URL_CHECK:', url[:30] if url else 'EMPTY')\" && gunicorn --worker-class gevent -w 1 app:app --bind 0.0.0.0:$PORT"
