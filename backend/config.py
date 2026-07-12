@@ -1,32 +1,33 @@
 import os
 import sys
-from dotenv import load_dotenv
 
-load_dotenv()  # ignoré si les vars sont déjà définies dans l'environnement
-
-def _build_db_url():
-    url = os.environ.get('DATABASE_URL', '')
-    if url:
-        if url.startswith('mysql://'):
-            url = url.replace('mysql://', 'mysql+mysqlconnector://', 1)
-        if '?' not in url:
-            url += '?charset=utf8mb4'
-        print(f"[DB] Using DATABASE_URL: {url[:40]}...", file=sys.stderr)
-        return url
-
-    host = os.environ.get('MYSQLHOST') or os.environ.get('MYSQL_HOST') or 'localhost'
-    port = os.environ.get('MYSQLPORT') or os.environ.get('MYSQL_PORT') or '3306'
-    user = os.environ.get('MYSQLUSER') or os.environ.get('MYSQL_USER') or 'root'
-    pwd  = os.environ.get('MYSQLPASSWORD') or os.environ.get('MYSQL_PASSWORD') or ''
-    db   = os.environ.get('MYSQLDATABASE') or os.environ.get('MYSQL_DB') or 'unitutor'
-
-    url = f"mysql+mysqlconnector://{user}:{pwd}@{host}:{port}/{db}?charset=utf8mb4"
-    print(f"[DB] Built from vars: host={host} port={port} db={db}", file=sys.stderr)
-    return url
+# Ne pas utiliser load_dotenv en production - Railway injecte les vars directement
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=False)  # Ne pas écraser les vars déjà définies
+except ImportError:
+    pass
 
 class Config:
-    SECRET_KEY                     = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
-    SQLALCHEMY_DATABASE_URI        = _build_db_url()
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
+
+    # Lire DATABASE_URL directement - Railway l'injecte au runtime
+    _db = os.environ.get('DATABASE_URL', '')
+    if not _db:
+        _h  = os.environ.get('MYSQLHOST', 'localhost')
+        _p  = os.environ.get('MYSQLPORT', '3306')
+        _u  = os.environ.get('MYSQLUSER', 'root')
+        _pw = os.environ.get('MYSQLPASSWORD', '')
+        _d  = os.environ.get('MYSQLDATABASE', 'unitutor')
+        _db = f"mysql+mysqlconnector://{_u}:{_pw}@{_h}:{_p}/{_d}?charset=utf8mb4"
+    elif _db.startswith('mysql://'):
+        _db = _db.replace('mysql://', 'mysql+mysqlconnector://', 1)
+    elif _db.startswith('mysql+mysqlconnector://') and '?' not in _db:
+        _db += '?charset=utf8mb4'
+
+    print(f"[CONFIG] DB host check: {'localhost' if 'localhost' in _db else 'REMOTE'}", file=sys.stderr)
+
+    SQLALCHEMY_DATABASE_URI        = _db
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS      = {
         'connect_args': {'charset': 'utf8mb4'},
